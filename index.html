@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e4fa8">
+<title>SEA水槽</title>
+<style>
+  :root {
+    --primary: #1e4fa8;
+    --primary-dark: #173f88;
+    --text: #222;
+    --muted: #555;
+    --line: #8a8a8a;
+    --bg: #f5f5f5;
+    --footer: #ebebeb;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* ヘッダー */
+  header {
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    padding-top: calc(8px + env(safe-area-inset-top));
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .icon-btn { background: none; border: 0; color: inherit; padding: 4px; cursor: pointer; display: flex; }
+  .brand { font-size: 24px; letter-spacing: .5px; flex: 1; }
+  .user-box { text-align: right; font-size: 14px; line-height: 1.4; min-width: 0; }
+  .user-box .email { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+  .status { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .status .dot { width: 12px; height: 12px; border-radius: 50%; background: #6cc24a; border: 1px solid #fff; }
+
+  /* 本体 */
+  main { flex: 1; width: 100%; max-width: 480px; margin: 0 auto; padding: 32px 24px 40px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  h1 { font-size: 17px; font-weight: 500; text-align: center; margin: 24px 0 20px; }
+
+  .field { display: grid; grid-template-columns: 84px 1fr; align-items: end; gap: 12px; margin-bottom: 18px; }
+  .field label { text-align: right; font-size: 15px; padding-bottom: 6px; }
+  .field input, .field .value {
+    font: inherit; font-size: 15px; color: var(--text);
+    border: 0; border-bottom: 1px solid var(--line);
+    background: transparent; padding: 6px 0; width: 100%; min-width: 0;
+    border-radius: 0; outline: none;
+  }
+  .field input:focus { border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
+  .field .value { word-break: break-all; }
+
+  .actions { margin-top: 40px; display: grid; gap: 14px; }
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font: inherit; font-size: 18px; height: 56px; border-radius: 4px; cursor: pointer;
+    border: 2px solid var(--primary); transition: background .15s, transform .05s;
+  }
+  .btn:active { transform: scale(.99); }
+  .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-outline { background: #fff; color: var(--primary); }
+  .btn-outline:hover { background: #eef3fc; }
+
+  .tank-link { width: 100%; display: flex; align-items: center; gap: 12px; margin-top: 20px; background: linear-gradient(90deg, #e6f6fc, #fff); border: 1px solid #cde9f4; border-radius: 12px; padding: 10px 12px; font: inherit; font-size: 14px; text-align: left; color: var(--text); cursor: pointer; }
+  .tank-link > span:nth-child(2) { flex: 1; }
+  .tank-link small { color: var(--muted); }
+  .tank-link .fishicon { width: 48px; height: 40px; border-radius: 10px; background: #1b8fc4; display: flex; align-items: center; justify-content: center; }
+  .tank-link > svg { color: var(--muted); }
+
+  /* 完了画面 */
+  .done { text-align: center; padding-top: 8px; }
+  .done h2 { font-size: 20px; font-weight: 600; margin: 0 0 14px; }
+  .summary { background: #fff; border-radius: 6px; padding: 16px 20px; text-align: left; font-size: 14px; margin: 20px 0 24px; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .summary dl { display: grid; grid-template-columns: 84px 1fr; gap: 10px 12px; margin: 0; }
+  .summary dt { color: var(--muted); }
+  .summary dd { margin: 0; word-break: break-all; }
+  .stack { display: grid; gap: 12px; }
+
+  /* 水槽 */
+  .tank { position: relative; border-radius: 16px 16px 0 0; overflow: hidden; border: 6px solid #2c3e50; border-bottom: 0; background: #0a5f8f; }
+  .tank canvas { display: block; width: 100%; touch-action: manipulation; cursor: pointer; }
+  .tank .count { position: absolute; left: 10px; top: 8px; background: rgba(255,255,255,.85); color: #0a4f75; font-weight: 800; font-size: 13px; padding: 3px 10px; border-radius: 999px; }
+  .tank .mode { position: absolute; right: 10px; top: 8px; color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .tank-frame-bottom { height: 14px; background: linear-gradient(#2c3e50, #1c2833); border-radius: 0 0 6px 6px; margin: 0 -2px; }
+  .panel { background: #fff; border-radius: 0 0 16px 16px; padding: 14px 16px 16px; box-shadow: 0 4px 12px rgba(0,0,0,.08); text-align: left; }
+  .panel .msg { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .panel .msg .new { font-size: 11px; color: #fff; background: #e74c3c; border-radius: 999px; padding: 2px 8px; }
+  .panel .rare { font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
+  .rare.r1 { background: #e8f1f8; color: #4a6a85; }
+  .rare.r2 { background: #e5f6ec; color: #1e8449; }
+  .rare.r3 { background: #fdf2d8; color: #9a6b00; }
+  .rare.r4 { background: linear-gradient(90deg, #ffd1e8, #d6e8ff); color: #6a1b9a; }
+  .panel .sub { font-size: 13px; color: var(--muted); margin: 4px 0 10px; line-height: 1.5; }
+  .bar { height: 10px; background: #e3f1f8; border-radius: 5px; overflow: hidden; margin: 8px 0 4px; }
+  .bar div { height: 100%; background: linear-gradient(90deg, #4fc3f7, #1b8fc4); border-radius: 5px; transition: width 1s; }
+  .bartext { font-size: 12px; color: var(--muted); }
+  .hint { font-size: 12px; color: var(--muted); text-align: center; margin: 8px 0 0; }
+
+  /* 図鑑 */
+  .zukan h3 { font-size: 15px; margin: 22px 0 10px; display: flex; justify-content: space-between; }
+  .zukan h3 span { font-size: 13px; color: var(--muted); font-weight: 400; }
+  .zgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .zcard { background: #fff; border-radius: 12px; padding: 8px 6px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .zcard canvas { width: 100%; height: 56px; display: block; border-radius: 8px; }
+  .zcard .nm { font-size: 12px; font-weight: 700; margin-top: 4px; }
+  .zcard .ct { font-size: 11px; color: var(--muted); }
+  .zcard.locked .nm { color: #aaa; }
+  .demo { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin-top: 6px; }
+  .demo button { background: none; border: 0; color: #999; font-size: 12px; text-decoration: underline; cursor: pointer; }
+
+  /* 節目のお祝い */
+  .celebrate { position: fixed; inset: 0; background: rgba(5,30,50,.82); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 40; color: #fff; text-align: center; padding: 24px; }
+  .celebrate.open { display: flex; }
+  .celebrate .big { font-size: 64px; animation: pop .7s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes pop { from { transform: scale(.3); } }
+  .celebrate h3 { font-size: 22px; margin: 8px 0 4px; color: #9fe6ff; }
+  .celebrate p { margin: 0 0 20px; font-size: 14px; line-height: 1.6; }
+  .celebrate .btn { min-width: 200px; background: #9fe6ff; color: #053650; border-color: #9fe6ff; font-weight: 800; }
+
+  /* フッター */
+  footer { background: var(--footer); padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); font-size: 14px; }
+  footer nav { display: flex; flex-wrap: wrap; gap: 8px 0; }
+  footer nav a { color: var(--primary); text-decoration: none; padding: 0 12px; border-left: 1px solid #999; }
+  footer nav a:first-child { border-left: 0; padding-left: 0; }
+  footer .copy { color: #888; text-align: center; margin-top: 16px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <header>
+    <button class="icon-btn" aria-label="メニュー">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </button>
+    <div class="brand">SEATouch</div>
+    <div class="user-box">
+      <div class="email" id="headerUser"></div>
+      <div class="status">
+        <span class="dot"></span>テレワーク
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- 入力画面 -->
+    <section class="screen active" id="screen-form">
+      <h1>在席退席登録</h1>
+      <div class="field">
+        <label for="card">カード番号</label>
+        <input id="card" type="text" inputmode="numeric" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>ユーザーID</label>
+        <div class="value" id="userId"></div>
+      </div>
+      <div class="field">
+        <label for="comment">コメント</label>
+        <input id="comment" type="text" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="datetime">日時</label>
+        <input id="datetime" type="datetime-local">
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="btnIn">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7 9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-8v2h8v14z"/></svg>
+          在席登録
+        </button>
+        <button class="btn btn-outline" id="btnOut">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="m17 7-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8v-2H4V5z"/></svg>
+          退席登録
+        </button>
+      </div>
+      <button class="tank-link" data-go="tank">
+        <span class="fishicon">
+          <svg viewBox="0 0 48 32" width="40" height="28"><path d="M6 16 L0 6 L0 26z" fill="#ffb347"/><ellipse cx="24" cy="16" rx="18" ry="11" fill="#ff7f27"/><path d="M18 5 v22" stroke="#fff" stroke-width="5"/><path d="M30 6 v20" stroke="#fff" stroke-width="4"/><circle cx="36" cy="13" r="3" fill="#fff"/><circle cx="37" cy="13" r="1.6" fill="#222"/></svg>
+        </span>
+        <span><b>SEA水槽</b>を見る<br><small id="linkCount"></small></span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6 8.6 7.4 13.2 12l-4.6 4.6L10 18l6-6z"/></svg>
+      </button>
+    </section>
+
+    <!-- 完了画面 -->
+    <section class="screen" id="screen-done">
+      <div class="done">
+        <h2 id="doneTitle">在席登録が完了しました</h2>
+        <div class="tank"><canvas id="doneCanvas"></canvas><span class="count" id="doneCount"></span><span class="mode" id="doneMode"></span></div>
+        <div class="tank-frame-bottom"></div>
+        <div class="panel">
+          <div class="msg" id="doneMsg"></div>
+          <div class="sub" id="doneSub"></div>
+          <div class="bar"><div id="doneBar"></div></div>
+          <div class="bartext" id="doneNext"></div>
+        </div>
+        <div class="summary">
+          <dl>
+            <dt>ユーザーID</dt><dd id="sumUser"></dd>
+            <dt>日時</dt><dd id="sumTime"></dd>
+            <dt>コメント</dt><dd id="sumComment"></dd>
+          </dl>
+        </div>
+        <div class="stack">
+          <button class="btn btn-primary" data-go="tank">水槽をじっくり見る</button>
+          <button class="btn btn-outline" data-go="form">戻る</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 水槽 -->
+    <section class="screen" id="screen-tank">
+      <div class="tank"><canvas id="tankCanvas"></canvas><span class="count" id="tankCount"></span><span class="mode" id="tankMode"></span></div>
+      <div class="tank-frame-bottom"></div>
+      <p class="hint">水槽をタップするとエサをあげられます ・ 昼と夜を切り替え：<button id="btnDayNight" style="background:none;border:0;color:var(--primary);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline">夜にする</button></p>
+      <div class="panel" style="border-radius:16px;margin-top:12px">
+        <div class="bartext" id="tankNext"></div>
+        <div class="bar"><div id="tankBar"></div></div>
+      </div>
+      <div class="zukan">
+        <h3>SEA図鑑 <span id="zukanCount"></span></h3>
+        <div class="zgrid" id="zgrid"></div>
+      </div>
+      <div class="stack" style="margin-top:24px">
+        <button class="btn btn-outline" data-go="form">戻る</button>
+        <div class="demo">
+          <button id="demoAdd">+5タッチ（デモ）</button>
+          <button id="demoReset">水槽をリセット（デモ）</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="celebrate" id="celebrate">
+    <div class="big" id="celebrateIcon"></div>
+    <h3 id="celebrateTitle"></h3>
+    <p id="celebrateText"></p>
+    <button class="btn" id="btnCelebrate">やったね！</button>
+  </div>
+
+  <footer>
+    <nav>
+      <a href="#">利用規約</a>
+      <a href="#">プライバシーポリシー</a>
+      <a href="#">ウェブアクセシビリティ</a>
+    </nav>
+    <div class="copy">Prototype — 実際の登録は行われません</div>
+  </footer>
+
+<script>
+  const USER_ID = 'taro.yamada@example.com';
+  const STORE_KEY = 'sea-tank-v1';
+  const MAX_DRAW = 80;
+  const $ = (id) => document.getElementById(id);
+
+  // 生き物の種類。pool: day = 在席で来る / night = 退席で来る / special = 節目で来る
+  const SPECIES = {
+    clown:   { name: 'カクレクマノミ', pool: 'day',   w: 30, rare: 1 },
+    tang:    { name: 'ナンヨウハギ',   pool: 'day',   w: 25, rare: 1 },
+    yellow:  { name: 'キイロハギ',     pool: 'day',   w: 20, rare: 1 },
+    angel:   { name: 'エンゼルフィッシュ', pool: 'day', w: 12, rare: 2 },
+    puffer:  { name: 'ハリセンボン',   pool: 'day',   w: 8,  rare: 2 },
+    manta:   { name: 'マンタ',         pool: 'day',   w: 5,  rare: 3 },
+    jelly:   { name: 'ミズクラゲ',     pool: 'night', w: 40, rare: 1 },
+    squid:   { name: 'ホタルイカ',     pool: 'night', w: 30, rare: 2 },
+    eel:     { name: 'チンアナゴ',     pool: 'night', w: 30, rare: 2 },
+    turtle:  { name: 'ウミガメ',       pool: 'special', rare: 4 },
+    whale:   { name: 'ジンベエザメ',   pool: 'special', rare: 4 },
+  };
+  const RARE_LABEL = { 1: 'よく見かける', 2: 'ちょっとレア', 3: 'レア', 4: 'スペシャル' };
+  // 節目：タッチ数で水槽が豪華になる
+  const MILESTONES = [
+    { at: 3,  icon: '🌿', title: '海藻が生えてきた！',         text: '水槽にゆらゆら海藻が増えました' },
+    { at: 6,  icon: '🪸', title: 'サンゴが育った！',           text: 'カラフルなサンゴで水槽がにぎやかに' },
+    { at: 10, icon: '💰', title: '宝箱が沈んでいた！',         text: 'ときどき泡がぽこぽこ出てきます' },
+    { at: 15, icon: '🌈', title: 'サンゴ礁が広がった！',       text: 'サンゴがもっと増えて南の海みたい' },
+    { at: 20, icon: '🐢', title: 'ウミガメがやってきた！',     text: 'スペシャルゲストのウミガメが仲間入り', special: 'turtle' },
+    { at: 30, icon: '🦈', title: 'ジンベエザメがやってきた！', text: '大きなジンベエザメがゆったり泳ぎます', special: 'whale' },
+  ];
+
+  $('headerUser').textContent = USER_ID;
+  $('userId').textContent = USER_ID;
+
+  function nowLocal() {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  }
+  $('datetime').value = nowLocal();
+
+  // 状態（このブラウザ内にだけ保存）：touches = タッチ数、list = 来た生き物の種類
+  function load() {
+    try { const v = JSON.parse(localStorage.getItem(STORE_KEY)); if (v && Array.isArray(v.list)) return v; } catch {}
+    return { touches: 0, list: [] };
+  }
+  let state = load();
+  function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {} }
+
+  function pickSpecies(pool) {
+    const keys = Object.keys(SPECIES).filter(k => SPECIES[k].pool === pool);
+    let r = Math.random() * keys.reduce((a, k) => a + SPECIES[k].w, 0);
+    for (const k of keys) { if ((r -= SPECIES[k].w) < 0) return k; }
+    return keys[0];
+  }
+  const countOf = (k) => state.list.filter(x => x === k).length;
+  const nextMilestone = () => MILESTONES.find(m => state.touches < m.at);
+
+  // ---------------- 描画 ----------------
+  function eye(ctx, x, y, r = 3) {
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x + r * .3, y, r * .55, 0, 7); ctx.fill();
+  }
+  function tail(ctx, x, len, spread, wig, color) {
+    ctx.save(); ctx.translate(x, 0); ctx.rotate(wig);
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(-len, -spread); ctx.lineTo(-len * .75, 0); ctx.lineTo(-len, spread); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  // 生き物を (0,0) 中心・右向きで描く
+  function drawBody(ctx, type, t, ph, night) {
+    const wig = Math.sin(t * 8 + ph) * .35;
+    switch (type) {
+      case 'clown': {
+        tail(ctx, -16, 12, 9, wig, '#ff8c2e');
+        ctx.fillStyle = '#ff7a1a'; ctx.beginPath(); ctx.ellipse(0, 0, 18, 10, 0, 0, 7); ctx.fill();
+        ctx.save(); ctx.beginPath(); ctx.ellipse(0, 0, 18, 10, 0, 0, 7); ctx.clip();
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#222'; ctx.lineWidth = 1.2;
+        [[-7, 3.5], [5, 3]].forEach(([x, w]) => { ctx.beginPath(); ctx.ellipse(x, 0, w, 12, 0, 0, 7); ctx.fill(); ctx.stroke(); });
+        ctx.restore(); eye(ctx, 11, -2.5, 2.8); break;
+      }
+      case 'tang': {
+        tail(ctx, -17, 11, 9, wig, '#ffd23f');
+        ctx.fillStyle = '#2f6fe0'; ctx.beginPath(); ctx.ellipse(0, 0, 19, 11, 0, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#0d1f4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(10, -6); ctx.quadraticCurveTo(-4, -10, -12, 2); ctx.quadraticCurveTo(-4, 6, 6, 2); ctx.stroke();
+        eye(ctx, 12, -2.5, 2.8); break;
+      }
+      case 'yellow': {
+        tail(ctx, -13, 9, 8, wig, '#f5c400');
+        ctx.fillStyle = '#ffd60a'; ctx.beginPath(); ctx.moveTo(18, 2); ctx.quadraticCurveTo(6, -18, -14, -2); ctx.quadraticCurveTo(-14, 4, -12, 4); ctx.quadraticCurveTo(4, 18, 18, 2); ctx.fill();
+        ctx.fillStyle = '#fff3b0'; ctx.fillRect(-10, -1, 3, 2); eye(ctx, 8, -3, 2.6); break;
+      }
+      case 'angel': {
+        tail(ctx, -12, 9, 8, wig, '#d9d9d9');
+        ctx.fillStyle = '#eef2f5'; ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-2, -16); ctx.lineTo(-14, -28); ctx.lineTo(-12, 0); ctx.lineTo(-14, 28); ctx.lineTo(-2, 16); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 2.5; [-6, 3].forEach(x => { ctx.beginPath(); ctx.moveTo(x, -14); ctx.lineTo(x, 14); ctx.stroke(); });
+        eye(ctx, 9, -2, 2.6); break;
+      }
+      case 'puffer': {
+        tail(ctx, -14, 8, 6, wig, '#d4a72c');
+        ctx.fillStyle = '#f2d16b'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#a07a1c'; ctx.lineWidth = 1.5;
+        for (let a = 0; a < 6.28; a += .55) { ctx.beginPath(); ctx.moveTo(Math.cos(a) * 14, Math.sin(a) * 14); ctx.lineTo(Math.cos(a) * 19, Math.sin(a) * 19); ctx.stroke(); }
+        ctx.fillStyle = '#8b6b2a'; [[-5, -6], [-8, 4], [2, 8], [4, -9]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, 7); ctx.fill(); });
+        ctx.fillStyle = '#fff8e0'; ctx.beginPath(); ctx.ellipse(2, 7, 10, 5, 0, 0, 7); ctx.fill();
+        eye(ctx, 8, -4, 3.6); break;
+      }
+      case 'manta': {
+        const f = Math.sin(t * 2.5 + ph) * .5;
+        ctx.fillStyle = '#2f4052';
+        ctx.beginPath(); ctx.moveTo(22, 0); ctx.quadraticCurveTo(4, -6, -6, -34 * (1 + f * .4)); ctx.quadraticCurveTo(-10, -8, -20, 0); ctx.quadraticCurveTo(-10, 8, -6, 34 * (1 - f * .4)); ctx.quadraticCurveTo(4, 6, 22, 0); ctx.fill();
+        ctx.strokeStyle = '#2f4052'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(-44, Math.sin(t * 3) * 3); ctx.stroke();
+        ctx.fillStyle = '#d8e2ea'; ctx.beginPath(); ctx.ellipse(8, 0, 8, 3, 0, 0, 7); ctx.fill(); break;
+      }
+      case 'jelly': {
+        const p = 1 + Math.sin(t * 2 + ph) * .12;
+        if (night) { ctx.shadowColor = '#ff9de6'; ctx.shadowBlur = 16; }
+        ctx.fillStyle = night ? 'rgba(255,170,230,.55)' : 'rgba(255,255,255,.55)';
+        ctx.beginPath(); ctx.ellipse(0, 0, 16 / p, 12 * p, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = night ? 'rgba(255,190,240,.7)' : 'rgba(255,255,255,.6)'; ctx.lineWidth = 1.5;
+        for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * 5, 0); for (let y = 0; y < 30; y += 4) ctx.lineTo(i * 5 + Math.sin(t * 3 + y * .3 + i) * 2.5, y); ctx.stroke(); }
+        ctx.fillStyle = night ? 'rgba(255,120,200,.6)' : 'rgba(200,170,255,.6)';
+        [[-6, -5], [0, -7], [6, -5], [0, -2]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2.2, 0, 7); ctx.fill(); });
+        break;
+      }
+      case 'squid': {
+        ctx.fillStyle = '#7d4fd6'; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(4, -5); ctx.quadraticCurveTo(12, 0, 4, 5); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#7d4fd6'; ctx.lineWidth = 1.5;
+        for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(8, i * 2); ctx.lineTo(16, i * 3 + Math.sin(t * 6 + i) * 2); ctx.stroke(); }
+        if (night) { ctx.shadowColor = '#4fd8ff'; ctx.shadowBlur = 10; }
+        ctx.fillStyle = night ? '#9ff0ff' : '#b9a3ff';
+        [[-8, -1], [-3, 2], [1, -2], [10, 0]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 7); ctx.fill(); });
+        ctx.shadowBlur = 0; break;
+      }
+      case 'turtle': {
+        const fl = Math.sin(t * 2.4 + ph) * .5;
+        ctx.fillStyle = '#7fb069';
+        [[10, -14, fl], [10, 14, -fl], [-14, -11, -fl * .6], [-14, 11, fl * .6]].forEach(([x, y, a]) => { ctx.save(); ctx.translate(x, y); ctx.rotate(a + (y < 0 ? -.6 : .6)); ctx.beginPath(); ctx.ellipse(0, 0, 13, 5, 0, 0, 7); ctx.fill(); ctx.restore(); });
+        ctx.beginPath(); ctx.ellipse(28, 0, 8, 6, 0, 0, 7); ctx.fill(); eye(ctx, 31, -2, 2);
+        ctx.fillStyle = '#3d7a4a'; ctx.beginPath(); ctx.ellipse(0, 0, 24, 17, 0, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#a7d08c'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(0, 0, 10, 7, 0, 0, 7); ctx.stroke();
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sy]) => { ctx.beginPath(); ctx.moveTo(sx * 8, sy * 6); ctx.lineTo(sx * 20, sy * 11); ctx.stroke(); });
+        break;
+      }
+      case 'whale': {
+        ctx.save(); ctx.translate(-62, 0); ctx.rotate(wig * .4);
+        ctx.fillStyle = '#2c4a70'; ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(-30, -26); ctx.lineTo(-22, 0); ctx.lineTo(-26, 18); ctx.closePath(); ctx.fill(); ctx.restore();
+        ctx.fillStyle = '#2c4a70'; ctx.beginPath(); ctx.moveTo(70, 0); ctx.quadraticCurveTo(66, -22, 20, -22); ctx.quadraticCurveTo(-40, -18, -64, 0); ctx.quadraticCurveTo(-40, 16, 20, 18); ctx.quadraticCurveTo(66, 18, 70, 0); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(-14, -36); ctx.lineTo(-18, -18); ctx.fill();
+        ctx.fillStyle = '#d6e4f0'; ctx.beginPath(); ctx.moveTo(70, 2); ctx.quadraticCurveTo(40, 18, 0, 16); ctx.quadraticCurveTo(40, 10, 70, 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.85)';
+        for (let i = 0; i < 26; i++) { const x = 56 - (i % 9) * 13, y = -14 + Math.floor(i / 9) * 9 + (i % 2) * 3; ctx.beginPath(); ctx.arc(x, y, 1.8, 0, 7); ctx.fill(); }
+        ctx.strokeStyle = '#1b2f48'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(70, 3); ctx.lineTo(56, 4); ctx.stroke();
+        eye(ctx, 58, -6, 2.2); break;
+      }
+    }
+  }
+
+  // ---------------- 水槽 ----------------
+  class Tank {
+    constructor(canvas, height) {
+      this.cv = canvas; this.ctx = canvas.getContext('2d'); this.h = height;
+      this.night = false; this.creatures = []; this.food = []; this.bubbles = []; this.labels = [];
+      this.running = false; this.t = 0;
+      canvas.addEventListener('pointerdown', (e) => this.feed(e));
+    }
+    resize() {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      this.w = this.cv.clientWidth || 360;
+      this.cv.style.height = this.h + 'px';
+      this.cv.width = this.w * dpr; this.cv.height = this.h * dpr;
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    spawn(type, opts = {}) {
+      const big = type === 'whale' ? 1 : type === 'turtle' || type === 'manta' ? .9 : 0;
+      const c = {
+        type, ph: Math.random() * 6.28, dir: Math.random() < .5 ? 1 : -1,
+        s: type === 'whale' ? 1 : type === 'squid' ? 1 : .8 + Math.random() * .4,
+        x: 30 + Math.random() * (this.w - 60),
+        baseY: type === 'eel' ? this.h - 30 : type === 'whale' ? this.h * .35 : 40 + Math.random() * (this.h - 120),
+        speed: type === 'whale' ? 14 : big ? 22 : type === 'jelly' ? 6 : 30 + Math.random() * 25,
+        amp: type === 'jelly' ? 20 : 6 + Math.random() * 8,
+        vy: 0,
+      };
+      if (type === 'eel') c.x = 20 + Math.random() * (this.w - 40);
+      c.y = c.baseY;
+      if (opts.entering) { c.y = -30; c.entering = true; this.labels.push({ c, text: opts.label, until: this.t + 4.5 }); for (let i = 0; i < 10; i++) this.bubbles.push({ x: c.x + (Math.random() - .5) * 30, y: 10 + Math.random() * 20, r: 2 + Math.random() * 3, v: 30 + Math.random() * 30 }); }
+      this.creatures.push(c);
+      return c;
+    }
+    load(list) {
+      this.resize();
+      this.creatures = []; this.labels = [];
+      const shown = list.slice(-MAX_DRAW);
+      shown.forEach(k => this.spawn(k));
+    }
+    feed(e) {
+      const r = this.cv.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      for (let i = 0; i < 5; i++) this.food.push({ x: x + (Math.random() - .5) * 24, y: 4 + Math.random() * 10, v: 18 + Math.random() * 10 });
+    }
+    start() { if (this.running) return; this.running = true; this.last = performance.now(); requestAnimationFrame(n => this.loop(n)); }
+    stop() { this.running = false; }
+    loop(now) {
+      if (!this.running) return;
+      const dt = Math.min(.05, (now - this.last) / 1000); this.last = now; this.t += dt;
+      this.update(dt); this.draw();
+      requestAnimationFrame(n => this.loop(n));
+    }
+    update(dt) {
+      const slow = this.night ? .45 : 1;
+      for (const f of this.food) f.y = Math.min(this.h - 26, f.y + f.v * dt);
+      for (const c of this.creatures) {
+        if (c.entering) { c.y += (c.baseY - c.y) * Math.min(1, dt * 2.2); if (Math.abs(c.baseY - c.y) < 2) c.entering = false; continue; }
+        if (c.type === 'eel') continue;
+        // エサに寄っていく
+        let target = null, best = 160;
+        if (c.type !== 'jelly' && c.type !== 'whale') for (const f of this.food) { const d = Math.hypot(f.x - c.x, f.y - c.y); if (d < best) { best = d; target = f; } }
+        if (target) {
+          c.dir = target.x > c.x ? 1 : -1;
+          c.x += Math.sign(target.x - c.x) * Math.min(Math.abs(target.x - c.x), c.speed * 2.2 * dt);
+          c.baseY += (target.y - c.baseY) * Math.min(1, dt * 2);
+          if (best < 12) this.food.splice(this.food.indexOf(target), 1);
+        } else {
+          c.x += c.dir * c.speed * slow * dt;
+        }
+        const margin = c.type === 'whale' ? 90 : 26;
+        if (c.x > this.w - margin && c.dir > 0) c.dir = -1;
+        if (c.x < margin && c.dir < 0) c.dir = 1;
+        c.baseY = Math.max(24, Math.min(this.h - 50, c.baseY));
+        c.y = c.baseY + Math.sin(this.t * (c.type === 'jelly' ? .8 : 1.6) + c.ph) * c.amp;
+      }
+      this.food = this.food.filter(f => this.t - (f.born ??= this.t) < 8);
+      const want = 2 + Math.min(10, state.touches / 3) + (state.touches >= 10 ? 2 : 0);
+      if (Math.random() < want * dt) this.bubbles.push({ x: Math.random() * this.w, y: this.h - 20, r: 1.5 + Math.random() * 3, v: 25 + Math.random() * 30 });
+      if (state.touches >= 10 && Math.random() < dt * 1.5) this.bubbles.push({ x: this.chestX + 10 + Math.random() * 6, y: this.h - 34, r: 2 + Math.random() * 2, v: 40 });
+      for (const b of this.bubbles) { b.y -= b.v * dt; b.x += Math.sin(this.t * 3 + b.y * .05) * .3; }
+      this.bubbles = this.bubbles.filter(b => b.y > -10);
+      this.labels = this.labels.filter(l => l.until > this.t);
+    }
+    draw() {
+      const { ctx, w, h, t } = this, n = state.touches, night = this.night;
+      const g = ctx.createLinearGradient(0, 0, 0, h);
+      if (night) { g.addColorStop(0, '#0d2847'); g.addColorStop(1, '#03101f'); } else { g.addColorStop(0, '#5fd0f3'); g.addColorStop(1, '#0a5f8f'); }
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+      // 光の筋
+      ctx.save(); ctx.globalAlpha = night ? .06 : .12; ctx.fillStyle = '#fff';
+      for (let i = 0; i < 4; i++) { const x = (i * w / 3.2 + Math.sin(t * .3 + i) * 20); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 40, 0); ctx.lineTo(x + 110, h); ctx.lineTo(x + 50, h); ctx.fill(); }
+      ctx.restore();
+      // 砂と岩
+      ctx.fillStyle = night ? '#4a4535' : '#ecd9a6';
+      ctx.beginPath(); ctx.moveTo(0, h - 24); for (let x = 0; x <= w; x += 20) ctx.lineTo(x, h - 24 + Math.sin(x * .05) * 5); ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.fill();
+      ctx.fillStyle = night ? '#2e3540' : '#7f8c8d';
+      ctx.beginPath(); ctx.ellipse(w * .82, h - 26, 34, 20, 0, Math.PI, 0); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w * .14, h - 24, 22, 13, 0, Math.PI, 0); ctx.fill();
+      // 海藻
+      if (n >= 3) {
+        const spots = [w * .06, w * .24, w * .9, w * .66].slice(0, n >= 15 ? 4 : 2);
+        spots.forEach((sx, i) => { for (let k = 0; k < 3; k++) {
+          ctx.strokeStyle = night ? '#1f5a3a' : ['#2e9e5b', '#3cb371', '#228b55'][k]; ctx.lineWidth = 4; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(sx + k * 7, h - 22);
+          for (let y = 0; y < 70 + k * 12; y += 8) ctx.lineTo(sx + k * 7 + Math.sin(t * 1.5 + y * .08 + i + k) * (y * .12), h - 22 - y);
+          ctx.stroke();
+        } });
+      }
+      // サンゴ
+      const coral = (x, color, s = 1) => {
+        ctx.strokeStyle = night ? '#5a3a55' : color; ctx.lineWidth = 6 * s; ctx.lineCap = 'round';
+        const br = (x0, y0, len, ang, d) => { if (d === 0) return; const x1 = x0 + Math.cos(ang) * len, y1 = y0 + Math.sin(ang) * len; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); br(x1, y1, len * .72, ang - .45, d - 1); br(x1, y1, len * .72, ang + .45, d - 1); };
+        br(x, h - 22, 20 * s, -Math.PI / 2, 4);
+      };
+      if (n >= 6) { coral(w * .36, '#ff7f9f'); coral(w * .58, '#ffa94d', .8); }
+      if (n >= 15) { coral(w * .48, '#c77dff', .9); coral(w * .76, '#ff5c8a', .7); coral(w * .2, '#4dd2c4', .75); }
+      // 宝箱
+      this.chestX = w * .72;
+      if (n >= 10) {
+        const x = this.chestX, y = h - 40;
+        ctx.fillStyle = night ? '#4a3420' : '#8e5a2b'; ctx.fillRect(x, y, 30, 18);
+        ctx.fillStyle = night ? '#5a4128' : '#a8693a'; ctx.beginPath(); ctx.moveTo(x - 2, y); ctx.quadraticCurveTo(x + 15, y - 14, x + 32, y); ctx.fill();
+        ctx.fillStyle = '#f1c40f'; ctx.fillRect(x + 13, y + 2, 5, 7); ctx.fillRect(x, y + 6, 30, 2);
+      }
+      // 泡・エサ
+      ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1.2;
+      for (const b of this.bubbles) { ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.stroke(); }
+      ctx.fillStyle = '#c0703a'; for (const f of this.food) { ctx.beginPath(); ctx.arc(f.x, f.y, 2.5, 0, 7); ctx.fill(); }
+      // チンアナゴ（砂から生える）
+      for (const c of this.creatures) if (c.type === 'eel' && !c.entering) {
+        const sway = Math.sin(t * 1.4 + c.ph) * 6, top = h - 24 - 44 * c.s;
+        ctx.strokeStyle = '#f2efe6'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(c.x, h - 22); ctx.quadraticCurveTo(c.x - sway, h - 46 * c.s, c.x + sway * .6, top); ctx.stroke();
+        ctx.fillStyle = '#333'; for (let k = 1; k < 5; k++) { ctx.beginPath(); ctx.arc(c.x - sway * k / 6, h - 24 - k * 9 * c.s, 1.3, 0, 7); ctx.fill(); }
+        eye(ctx, c.x + sway * .6 + 2, top + 1, 2);
+        ctx.fillStyle = '#d8cfa8'; ctx.beginPath(); ctx.ellipse(c.x, h - 22, 7, 3, 0, 0, 7); ctx.fill();
+      }
+      // 泳ぐ生き物
+      const order = [...this.creatures].sort((a, b) => (a.type === 'whale') - (b.type === 'whale') || 0);
+      for (const c of order) {
+        if (c.type === 'eel' && !c.entering) continue;
+        ctx.save(); ctx.translate(c.x, c.y);
+        if (c.type === 'jelly') ctx.scale(c.s, c.s); else ctx.scale(c.dir * c.s, c.s);
+        if (night && !['jelly', 'squid'].includes(c.type)) ctx.globalAlpha = .75;
+        drawBody(ctx, c.type, t, c.ph, night);
+        ctx.restore();
+      }
+      if (night) { ctx.fillStyle = 'rgba(5,15,40,.25)'; ctx.fillRect(0, 0, w, h); }
+      // 新入りのラベル
+      for (const l of this.labels) {
+        ctx.font = 'bold 12px -apple-system, "Hiragino Sans", sans-serif';
+        const tw = ctx.measureText(l.text).width + 16, x = Math.max(4, Math.min(w - tw - 4, l.c.x - tw / 2)), y = Math.max(36, l.c.y - 44);
+        ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.roundRect(x, y, tw, 22, 11); ctx.fill();
+        ctx.fillStyle = '#e74c3c'; ctx.fillText(l.text, x + 8, y + 15);
+        ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(l.c.x, l.c.y, 30 + Math.sin(t * 6) * 3, 0, 7); ctx.stroke();
+      }
+    }
+  }
+
+  const doneTank = new Tank($('doneCanvas'), 280);
+  const bigTank = new Tank($('tankCanvas'), 400);
+
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+    window.scrollTo(0, 0);
+  }
+  function go(name) {
+    doneTank.stop(); bigTank.stop();
+    if (name === 'form') { $('datetime').value = nowLocal(); renderLink(); }
+    show(`screen-${name}`);
+    if (name === 'tank') renderTankScreen();
+  }
+  document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
+
+  function renderLink() { $('linkCount').textContent = `いま ${state.list.length}匹 ・ ${state.touches}タッチ`; }
+  renderLink();
+
+  function progress() {
+    const m = nextMilestone();
+    if (!m) return { pct: 100, text: 'すべての節目を達成！ 水槽はこれからもにぎやかになります' };
+    const prev = [...MILESTONES].reverse().find(x => x.at <= state.touches)?.at || 0;
+    return { pct: (state.touches - prev) / (m.at - prev) * 100, text: `あと${m.at - state.touches}タッチで ${m.icon} ${m.title.replace('！', '')}` };
+  }
+
+  function fillSummary(kind) {
+    const dt = $('datetime').value || nowLocal();
+    $('doneTitle').textContent = `${kind}登録が完了しました`;
+    $('sumUser').textContent = USER_ID;
+    $('sumTime').textContent = dt.replace('T', ' ').replace(/-/g, '/');
+    $('sumComment').textContent = $('comment').value || '—';
+  }
+
+  // 在席・退席どちらも 1タッチ = 1匹（在席は昼の魚、退席は夜の生き物）
+  function touch(kind) {
+    fillSummary(kind);
+    const night = kind === '退席';
+    const type = pickSpecies(night ? 'night' : 'day');
+    const isNew = countOf(type) === 0;
+    state.touches += 1;
+    state.list.push(type);
+    const hit = MILESTONES.find(m => m.at === state.touches);
+    if (hit?.special) state.list.push(hit.special);
+    save();
+
+    show('screen-done');
+    doneTank.night = night;
+    doneTank.load(state.list.slice(0, -1 - (hit?.special ? 1 : 0)));
+    if (hit?.special) doneTank.spawn(hit.special);
+    doneTank.spawn(type, { entering: true, label: `${isNew ? 'NEW! ' : ''}${SPECIES[type].name}` });
+    doneTank.start();
+    $('doneCount').textContent = `🐟 ${state.list.length}匹`;
+    $('doneMode').textContent = night ? '🌙 夜の水槽' : '☀ 昼の水槽';
+    const sp = SPECIES[type];
+    $('doneMsg').innerHTML = `${sp.name}がやってきた！ <span class="rare r${sp.rare}">${RARE_LABEL[sp.rare]}</span>${isNew ? '<span class="new">NEW</span>' : ''}`;
+    $('doneSub').textContent = night
+      ? `夜の水槽はしずかでキラキラ。おつかれさまでした！（${state.touches}タッチ目）`
+      : `水槽の仲間がまた増えました。今日もよろしくお願いします！（${state.touches}タッチ目）`;
+    const p = progress();
+    $('doneBar').style.width = `${p.pct}%`;
+    $('doneNext').textContent = p.text;
+    if (hit) setTimeout(() => celebrate(hit), 2200);
+  }
+  $('btnIn').addEventListener('click', () => touch('在席'));
+  $('btnOut').addEventListener('click', () => touch('退席'));
+
+  function celebrate(m) {
+    $('celebrateIcon').textContent = m.icon;
+    $('celebrateTitle').textContent = m.title;
+    $('celebrateText').textContent = `${m.at}タッチ達成！ ${m.text}`;
+    $('celebrate').classList.add('open');
+  }
+  $('btnCelebrate').addEventListener('click', () => $('celebrate').classList.remove('open'));
+
+  function renderTankScreen() {
+    bigTank.load(state.list);
+    bigTank.night = bigTank.night || false;
+    bigTank.start();
+    $('btnDayNight').textContent = bigTank.night ? '昼にする' : '夜にする';
+    $('tankMode').textContent = bigTank.night ? '🌙 夜の水槽' : '☀ 昼の水槽';
+    $('tankCount').textContent = `🐟 ${state.list.length}匹 ・ ${state.touches}タッチ`;
+    const p = progress();
+    $('tankBar').style.width = `${p.pct}%`;
+    $('tankNext').textContent = p.text;
+    const keys = Object.keys(SPECIES);
+    $('zukanCount').textContent = `${keys.filter(k => countOf(k)).length} / ${keys.length} 種`;
+    $('zgrid').innerHTML = keys.map(k => `<div class="zcard${countOf(k) ? '' : ' locked'}"><canvas data-k="${k}"></canvas><div class="nm">${countOf(k) ? SPECIES[k].name : '？？？'}</div><div class="ct">${countOf(k) ? `${countOf(k)}匹` : SPECIES[k].pool === 'night' ? '退席で出会えるかも' : SPECIES[k].pool === 'special' ? '節目で登場' : '在席で出会えるかも'}</div></div>`).join('');
+    $('zgrid').querySelectorAll('canvas').forEach(cv => {
+      const k = cv.dataset.k, dpr = Math.min(2, window.devicePixelRatio || 1);
+      const w = cv.clientWidth || 100, h = 56;
+      cv.width = w * dpr; cv.height = h * dpr;
+      const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+      const night = SPECIES[k].pool === 'night';
+      ctx.fillStyle = night ? '#0d2847' : '#bfeaf8'; ctx.fillRect(0, 0, w, h);
+      ctx.save(); ctx.translate(w / 2, h / 2 + (k === 'jelly' ? -6 : 0));
+      const sc = k === 'whale' ? .32 : ['manta', 'turtle'].includes(k) ? .6 : k === 'eel' ? 1 : 1.05;
+      ctx.scale(sc, sc);
+      if (!countOf(k)) { ctx.filter = 'brightness(0)'; ctx.globalAlpha = .35; }
+      if (k === 'eel') { ctx.strokeStyle = '#f2efe6'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 22); ctx.quadraticCurveTo(-8, 0, 4, -18); ctx.stroke(); if (countOf(k)) eye(ctx, 6, -17, 2); }
+      else drawBody(ctx, k, 0, 0, night);
+      ctx.restore();
+    });
+  }
+  $('btnDayNight').addEventListener('click', () => {
+    bigTank.night = !bigTank.night;
+    $('btnDayNight').textContent = bigTank.night ? '昼にする' : '夜にする';
+    $('tankMode').textContent = bigTank.night ? '🌙 夜の水槽' : '☀ 昼の水槽';
+  });
+
+  $('demoAdd').addEventListener('click', () => {
+    let last = null;
+    for (let i = 0; i < 5; i++) {
+      state.touches += 1;
+      state.list.push(pickSpecies(i % 2 ? 'night' : 'day'));
+      const hit = MILESTONES.find(m => m.at === state.touches);
+      if (hit) { if (hit.special) state.list.push(hit.special); last = hit; }
+    }
+    save(); renderTankScreen();
+    if (last) celebrate(last);
+  });
+  $('demoReset').addEventListener('click', () => {
+    if (!confirm('水槽をリセットしますか？')) return;
+    state = { touches: 0, list: [] }; save(); renderTankScreen();
+  });
+  window.addEventListener('resize', () => { if (bigTank.running) bigTank.load(state.list); });
+</script>
+</body>
+</html>
